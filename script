@@ -1,0 +1,58 @@
+#!/bin/bash
+#SBATCH --job-name=phylogenetic_tree000
+#SBATCH --partition=highmem_p
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=30
+#SBATCH --mem=295G
+#SBATCH --time=48:00:00
+#SBATCH --export=NONE
+#SBATCH --output=%x_%j.out
+#SBATCH --error=%x_%j.err
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=<your-email>@<domain>.edu
+
+cd $SLURM_SUBMIT_DIR
+mkdir -p /lscratch/$USER/$SLURM_JOB_ID
+cp -R representative_sequences.qza /lscratch/$USER/$SLURM_JOB_ID  # Copy this file to scratch directory
+cd /lscratch/$USER/$SLURM_JOB_ID
+export LC_ALL=en_US.UTF-8
+
+ml QIIME2/2023.2
+
+qiime alignment mafft \
+  --i-sequences representative_sequences.qza \
+  --o-alignment aligned_representative_sequences.qza
+
+qiime alignment mask \
+  --i-alignment aligned_representative_sequences.qza \
+  --o-masked-alignment masked_aligned_representative_sequences.qza
+
+qiime phylogeny fasttree \
+  --i-alignment masked_aligned_representative_sequences.qza \
+  --o-tree phylogenetic_tree.qza
+
+qiime diversity alpha-phylogenetic \
+  --i-table merged_feature_table.qza \
+  --i-phylogeny phylogenetic_tree.qza \
+  --p-metric chao1 \
+  --o-alpha-diversity goods_coverage.qza
+
+cp -R masked_aligned_representative_sequences.qza $SLURM_SUBMIT_DIR
+cp -R phylogenetic_tree.qza $SLURM_SUBMIT_DIR
+cp -R goods_coverage.qza $SLURM_SUBMIT_DIR
+rm -r -f /lscratch/$USER/$SLURM_JOB_ID
+
+#############################
+# After the outputs come to your local machine
+# Execute the following codes in the qiime2 environment in the terminal:
+
+#IF YOUR JOB SCRIPT GIVES ANY ERROR, FIND ME IN THE BIOINFORMATICS LAB IN THIRD FLOOR OR VISIT https://www.utsavlamichhane.com/ for my email and other contacts
+
+qiime phylogeny midpoint-root \
+  --i-tree phylogenetic_tree.qza \
+  --o-rooted-tree rooted_phylogenetic_tree.qza
+
+qiime empress tree-plot \
+  --i-tree rooted_phylogenetic_tree.qza \
+  --o-visualization rooted_phylogenetic_tree.qzv
